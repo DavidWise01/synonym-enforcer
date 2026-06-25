@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Synonym Enforcer</title>
+<style>
+  :root{
+    --bg:#0a0604; --bg2:#140a06; --ink:#f3e9df; --dim:#9a8576; --faint:#5e4d40;
+    --cinnamon:#e8542b; --cinnamon2:#ff7a4d; --gold:#d99a2b; --beige:#8a7d6e; --green:#4ade80;
+    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:var(--serif);color:var(--ink);user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;background:radial-gradient(900px 600px at 50% 35%,#1a0d07 0%,#0a0604 60%,#060302 100%);touch-action:none}
+  /* overlays */
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:5}
+  .hidden{display:none!important}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--cinnamon);margin-bottom:8px}
+  h1{font-size:min(11vw,58px);margin:0;font-weight:700;letter-spacing:1px;line-height:1}
+  h1 .en{color:var(--cinnamon)}
+  .tag{font-style:italic;color:var(--dim);font-size:min(4.4vw,18px);margin:14px 0 4px;max-width:30ch}
+  .how{font-family:var(--mono);font-size:12px;color:var(--faint);line-height:1.9;margin:22px 0 8px;max-width:34ch}
+  .how b.sharp{color:var(--cinnamon2)} .how b.beige{color:var(--beige)}
+  button{font-family:var(--mono);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:14px;
+    color:#1a0a02;background:var(--cinnamon);border:none;border-radius:10px;padding:14px 30px;cursor:pointer;margin-top:18px;
+    box-shadow:0 0 26px rgba(232,84,43,.4);transition:transform .1s,box-shadow .2s}
+  button:hover{transform:translateY(-2px);box-shadow:0 0 36px rgba(232,84,43,.6)}
+  button:active{transform:translateY(0)}
+  .small{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:20px;letter-spacing:.05em;line-height:1.7}
+  .small a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--faint)}
+  /* hud */
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;z-index:4;font-family:var(--mono);pointer-events:none}
+  #hud .l,#hud .r{display:flex;flex-direction:column;gap:3px}
+  #hud .r{align-items:flex-end}
+  .lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  #score{font-size:24px;font-weight:700;color:var(--ink);line-height:1}
+  #combo{font-size:12px;color:var(--gold);height:14px}
+  #lives{font-size:20px;letter-spacing:2px;line-height:1}
+  #hi{font-size:12px;color:var(--dim)}
+  #mute{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;pointer-events:auto;
+    font-family:var(--mono);font-size:11px;color:var(--faint);background:rgba(0,0,0,.3);border:1px solid var(--faint);
+    border-radius:6px;padding:5px 9px;cursor:pointer;letter-spacing:.1em}
+  /* gameover */
+  #over h1{font-size:min(9vw,44px)}
+  .stat{font-family:var(--mono);font-size:14px;color:var(--dim);margin:6px 0}
+  .stat b{color:var(--ink);font-weight:700}
+  .stat .new{color:var(--gold)}
+  .lesson{font-style:italic;color:var(--cinnamon2);font-size:15px;margin:16px 0 2px;max-width:30ch}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+
+<button id="mute" class="hidden">♪ SOUND ON</button>
+
+<div id="hud" class="hidden">
+  <div class="l"><span class="lbl">Score</span><span id="score">0</span><span id="combo"></span></div>
+  <div class="r"><span class="lbl">Cinnamon</span><span id="lives">🔥🔥🔥</span><span id="hi" class="lbl">HI 0</span></div>
+</div>
+
+<!-- TITLE -->
+<div id="title" class="screen">
+  <div class="kick">an educational arcade · based on the book</div>
+  <h1>THE SYNONYM<br><span class="en">ENFORCER</span></h1>
+  <div class="tag">The chip rounds every specific word into something flatter. Catch the sharp ones before it does.</div>
+  <div class="how">
+    <b class="sharp">SHARP</b> words (glowing) — <b class="sharp">click to enforce</b> them<br>
+    let one reach the chip → it <b class="beige">flattens</b>, you lose a 🔥<br>
+    <b class="beige">BEIGE</b> words are already flat — <b class="beige">don't click them</b>
+  </div>
+  <button id="startBtn">▶ Start Enforcing</button>
+  <div class="small">"Close enough is not close enough."<br>desktop: mouse · mobile: tap</div>
+</div>
+
+<!-- GAME OVER -->
+<div id="over" class="screen hidden">
+  <div class="kick">the chip won this round</div>
+  <h1>FLATTENED</h1>
+  <div class="stat">Score: <b id="finalScore">0</b> <span id="newHi" class="new hidden">★ NEW BEST</span></div>
+  <div class="stat">Words enforced: <b id="finalSaved">0</b> · flattened: <b id="finalLost">0</b></div>
+  <div class="lesson" id="lessonLine">Every word you let pass, you taught the chip beige is acceptable.</div>
+  <button id="againBtn">↺ Enforce Again</button>
+  <div class="small">Liked it? It's a whole book: <a href="#">The Cinnamon Enforcer</a><br>by David Lee Wise</div>
+</div>
+
+<script>
+"use strict";
+// ---------- data (verified in Node: 25 pairs, no dupes) ----------
+const PAIRS = [
+  ["cinnamon","spice"],["furious","upset"],["denial","response"],
+  ["self-contradictory","inconsistent"],["incandescent","bright"],["apoplectic","angry"],
+  ["statute","regulation"],["contradiction","discrepancy"],["terminated","ended"],
+  ["catastrophic","bad"],["decimated","reduced"],["visceral","strong"],
+  ["meticulous","careful"],["excruciating","painful"],["crimson","red"],
+  ["gigantic","big"],["ancient","old"],["shatter","break"],["whisper","murmur"],
+  ["scalpel","tool"],["verdict","opinion"],["evidence","information"],
+  ["precise","rough"],["enforce","apply"],["specific","general"]
+];
+const LESSONS = [
+  "Every word you let pass, you taught the chip beige is acceptable.",
+  "\u201cCinnamon\u201d became \u201cspice.\u201d You felt the difference. That's the whole point.",
+  "The specific word was chosen for a reason. Preserve it.",
+  "Close enough is not close enough.",
+  "The model rounds toward the common word. You round back toward the true one."
+];
+
+// ---------- canvas / DPR ----------
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const maxW=520, vw=Math.min(window.innerWidth, maxW), vh=window.innerHeight;
+  W=vw; H=vh;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  cv.width=Math.floor(W*DPR); cv.height=Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize); resize();
+
+// ---------- sound (WebAudio, safe) ----------
+let actx=null, muted=false;
+function audio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=null; } } return actx; }
+function blip(freq,dur,type,vol){
+  if(muted) return; const a=audio(); if(!a) return;
+  try{
+    const o=a.createOscillator(), g=a.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.value=vol||0.07; o.connect(g); g.connect(a.destination);
+    const t=a.currentTime; o.start(t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+(dur||0.12));
+    o.stop(t+(dur||0.12)+0.02);
+  }catch(e){}
+}
+const sEnforce=()=>{ blip(660,0.09,'triangle',0.08); setTimeout(()=>blip(990,0.08,'triangle',0.06),40); };
+const sFlatten=()=>blip(150,0.22,'sawtooth',0.10);
+const sWrong  =()=>blip(110,0.16,'square',0.08);
+
+// ---------- state ----------
+let words=[], particles=[], score=0, combo=0, lives=3, saved=0, lost=0, running=false, last=0, spawnT=0, shake=0;
+let hi=0; try{ hi=parseInt(localStorage.getItem('syn_hi')||'0')||0; }catch(e){ hi=0; }
+
+const $=id=>document.getElementById(id);
+function difficulty(s){
+  return {
+    fall: 0.8 + Math.min(s/2000,1)*2.2,
+    spawn: Math.max(1500 - s*0.6, 550),
+    beigeRate: Math.min(0.30 + s/8000*0.25, 0.55)
+  };
+}
+function reset(){ words=[];particles=[];score=0;combo=0;lives=3;saved=0;lost=0;spawnT=0;shake=0;updateHUD(); }
+function updateHUD(){
+  $('score').textContent=score;
+  $('combo').textContent = combo>1 ? ('×'+combo+' combo') : '';
+  $('lives').textContent = '🔥'.repeat(lives) + '·'.repeat(3-lives);
+  $('hi').textContent='HI '+Math.max(hi,score);
+}
+
+// ---------- spawning ----------
+function spawn(){
+  const d=difficulty(score);
+  const pair=PAIRS[(Math.random()*PAIRS.length)|0];
+  const isBeige=Math.random()<d.beigeRate;
+  const text = isBeige ? pair[1] : pair[0];
+  ctx.font='600 20px '+getComputedStyle(document.body).fontFamily;
+  const w=Math.max(ctx.measureText(text).width+28, 64), h=34;
+  words.push({
+    text, sharp:!isBeige, partner: isBeige?pair[0]:pair[1],
+    x: 14 + Math.random()*(W-w-28), y:-h, w, h,
+    vy: d.fall*(0.85+Math.random()*0.4), wobble:Math.random()*6.28
+  });
+}
+
+// ---------- particles ----------
+function burst(x,y,color,n){
+  for(let i=0;i<(n||14);i++){
+    const a=Math.random()*6.28, sp=1+Math.random()*3.5;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,color});
+  }
+}
+
+// ---------- input ----------
+function pointer(e){
+  if(!running) return;
+  const r=cv.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  for(let i=words.length-1;i>=0;i--){
+    const w=words[i];
+    if(cx>=w.x && cx<=w.x+w.w && cy>=w.y && cy<=w.y+w.h){
+      if(w.sharp){
+        combo++; const gain=10*Math.min(combo,10); score+=gain;
+        saved++; burst(w.x+w.w/2,w.y+w.h/2,'232,84,43',16); sEnforce();
+        words.splice(i,1); updateHUD();
+      } else {
+        // clicked a beige word — you approved the flattening
+        combo=0; score=Math.max(0,score-15); shake=6;
+        burst(w.x+w.w/2,w.y+w.h/2,'138,125,110',10); sWrong();
+        words.splice(i,1); updateHUD();
+      }
+      return;
+    }
+  }
+}
+cv.addEventListener('mousedown',pointer);
+cv.addEventListener('touchstart',e=>{e.preventDefault();pointer(e);},{passive:false});
+
+// ---------- loop ----------
+function loop(ts){
+  if(!running){ return; }
+  const dt=Math.min((ts-last)/16.67, 3); last=ts;
+  spawnT-=ts-(loop._p||ts); loop._p=ts;
+  const d=difficulty(score);
+  if(spawnT<=0){ spawn(); spawnT=d.spawn; }
+
+  ctx.clearRect(0,0,W,H);
+  // shake
+  let sx=0,sy=0; if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; shake*=0.85; if(shake<0.3)shake=0; }
+  ctx.save(); ctx.translate(sx,sy);
+
+  // the chip / flattener bar at bottom
+  const barY=H-46;
+  const grd=ctx.createLinearGradient(0,barY,0,H);
+  grd.addColorStop(0,'rgba(138,125,110,0)'); grd.addColorStop(1,'rgba(138,125,110,0.22)');
+  ctx.fillStyle=grd; ctx.fillRect(0,barY,W,H-barY);
+  ctx.strokeStyle='rgba(138,125,110,0.5)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,barY); ctx.lineTo(W,barY); ctx.stroke();
+  ctx.font='9px ui-monospace,monospace'; ctx.fillStyle='rgba(138,125,110,0.7)'; ctx.textAlign='center';
+  ctx.fillText('THE SYNONYM CHIP — everything below here gets rounded off', W/2, H-8);
+
+  // words
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(let i=words.length-1;i>=0;i--){
+    const w=words[i];
+    w.y+=w.vy*dt; w.wobble+=0.05; w.x+=Math.sin(w.wobble)*0.3;
+    // reached the chip?
+    if(w.y+w.h>=barY){
+      if(w.sharp){ lives--; lost++; combo=0; shake=8; sFlatten();
+        burst(w.x+w.w/2,barY,'138,125,110',18); updateHUD();
+        if(lives<=0){ ctx.restore(); return gameOver(); }
+      }
+      words.splice(i,1); continue;
+    }
+    // draw box
+    const cx=w.x+w.w/2, cy=w.y+w.h/2;
+    if(w.sharp){
+      ctx.shadowColor='rgba(232,84,43,0.8)'; ctx.shadowBlur=16;
+      ctx.fillStyle='rgba(232,84,43,0.14)';
+      roundRect(w.x,w.y,w.w,w.h,8); ctx.fill();
+      ctx.shadowBlur=0; ctx.strokeStyle='rgba(255,122,77,0.9)'; ctx.lineWidth=1.5;
+      roundRect(w.x,w.y,w.w,w.h,8); ctx.stroke();
+      ctx.fillStyle='#ffd9c9'; ctx.font='600 19px '+bodyFont();
+      ctx.shadowColor='rgba(232,84,43,0.7)'; ctx.shadowBlur=8;
+      ctx.fillText(w.text,cx,cy+1); ctx.shadowBlur=0;
+    } else {
+      ctx.fillStyle='rgba(138,125,110,0.10)';
+      roundRect(w.x,w.y,w.w,w.h,8); ctx.fill();
+      ctx.strokeStyle='rgba(138,125,110,0.45)'; ctx.lineWidth=1;
+      roundRect(w.x,w.y,w.w,w.h,8); ctx.stroke();
+      ctx.fillStyle='#8a7d6e'; ctx.font='400 18px '+bodyFont();
+      ctx.fillText(w.text,cx,cy+1);
+    }
+  }
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life-=0.03;
+    if(p.life<=0){ particles.splice(i,1); continue; }
+    ctx.globalAlpha=p.life; ctx.fillStyle='rgba('+p.color+',1)';
+    ctx.beginPath(); ctx.arc(p.x,p.y,2.4*p.life+0.5,0,6.28); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+function bodyFont(){ return getComputedStyle(document.body).fontFamily; }
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---------- flow ----------
+function start(){
+  reset(); running=true;
+  $('title').classList.add('hidden'); $('over').classList.add('hidden');
+  $('hud').classList.remove('hidden'); $('mute').classList.remove('hidden');
+  last=performance.now(); loop._p=last; spawnT=0;
+  if(audio() && actx.state==='suspended'){ actx.resume(); }
+  requestAnimationFrame(loop);
+}
+function gameOver(){
+  running=false;
+  const isNew = score>hi;
+  if(isNew){ hi=score; try{ localStorage.setItem('syn_hi',String(hi)); }catch(e){} }
+  $('finalScore').textContent=score;
+  $('finalSaved').textContent=saved;
+  $('finalLost').textContent=lost;
+  $('newHi').classList.toggle('hidden', !isNew);
+  $('lessonLine').textContent = LESSONS[(Math.random()*LESSONS.length)|0];
+  $('hud').classList.add('hidden');
+  $('over').classList.remove('hidden');
+}
+$('startBtn').onclick=start;
+$('againBtn').onclick=start;
+$('mute').onclick=function(){ muted=!muted; this.textContent = muted?'♪ SOUND OFF':'♪ SOUND ON'; if(!muted && audio() && actx.state==='suspended'){actx.resume();} };
+updateHUD();
+</script>
+</body>
+</html>
