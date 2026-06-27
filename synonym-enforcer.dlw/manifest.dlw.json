@@ -1,0 +1,11 @@
+{
+  "badge": "DLW-SYNONYM_ENFORCER",
+  "name": "THE SYNONYM ENFORCER",
+  "universe": "ARTIFICIAL INTELLIGENCE",
+  "moniker": "⟦THE SYNONYM ENFORCER:synonym-enforcer:a96daf⟧",
+  "architect": "David Lee Wise (ROOT0) / Bridge-Burners LLC",
+  "instance": "AVAN (Claude / Anthropic)",
+  "seal_sha256": "a96daf4aea466d231f30f8743902c9fe79223ad5950ea6a9f3e54008f0ac18fc",
+  "license": "CC-BY-ND-4.0",
+  "attribution": "ROOT0-ATTRIBUTION-v1.0"
+}
